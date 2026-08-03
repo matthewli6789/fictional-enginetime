@@ -7,7 +7,7 @@ from math import prod
 from itertools import product
 from colorsys import hsv_to_rgb
 
-def course_paste():
+def course_paste(paste_into):
     def a_or_p(time):
         if time[5:7] == 'PM' and time[0:2] != '12':
             return f'{str(int(time[0:2]) + 12)}:{time[3:5]}'
@@ -18,14 +18,11 @@ def course_paste():
     add_list = []
 
     with open('course_paste.txt', 'r') as f:
-        if f.read() == '':
-            raise Exception('File empty')
         reader = csv.reader(f, delimiter='\t')
         for line in reader:
             file_list += line
 
     try:
-
         course = file_list[0][:9]
         matching = None
         if file_list[1] == '[Matching between Lecture & Lab required]':
@@ -62,16 +59,15 @@ def course_paste():
         # Add last section
         add_list.append([section] + durations)
 
-        with open('Y1_Spring.csv', 'a', newline='') as f:
+        with open(paste_into, 'a', newline='') as f:
             writer = csv.writer(f)
             writer.writerows(add_list)
 
-
-
     except Exception as e:
-        print(f'#### Unable to paste course info: {e}')
-        print(f'{item} (Item {i})')
-        print(file_list[i - 10:i + 10])
+        raise Exception(f'#### Unable to paste course info: {e}')
+    else:
+        print('Course successfully pasted')
+
 
 
 class TimetablePlanner:
@@ -109,28 +105,20 @@ class TimetablePlanner:
 
         file_name_list = {
             '2025-26': {
-                'FALL': 'Y1_Fall.csv',
-                'WINTER': '',
-                'SPRING': 'Y1_Spring.csv',
-                'SUMMER': ''
+                'FALL': '2526F.csv',
+                'SPRING': '2526S.csv',
             },
             '2026-27': {
-                'FALL': '',
-                'WINTER': '',
+                'FALL': '2627F.csv',
                 'SPRING': '',
-                'SUMMER': ''
             },
             '2027-28': {
                 'FALL': '',
-                'WINTER': '',
                 'SPRING': '',
-                'SUMMER': ''
             },
             '2028-29': {
                 'FALL': '',
-                'WINTER': '',
                 'SPRING': '',
-                'SUMMER': ''
             },
         }
 
@@ -289,9 +277,16 @@ class TimetablePlanner:
                 section_types.sort()
 
                 if any(wl_c == course for wl_c, _ in whitelist):
-                    sections = list(s for s in sections if not(
-                                    any(wl_c == course and find_section_type(wl_s) == find_section_type(s) for wl_c, wl_s in whitelist)
-                                    and (course, s) not in whitelist))
+                    sections = list(
+                        s for s in sections if not(
+                                any(
+                                    wl_c == course
+                                    and find_section_type(wl_s) == find_section_type(s)
+                                    for wl_c, wl_s in whitelist
+                                )
+                                and (course, s) not in whitelist
+                        )
+                    )
                 sections = list(s for s in sections if (course, s) not in blacklist)
 
                 # Raise error if a section type has no section (due to combination of whitelist and blacklist)
@@ -425,7 +420,9 @@ class TimetablePlanner:
 
 def main():
 
-    t = TimetablePlanner('2025-2026', 'Spring')
+    #course_paste('2627F.csv')
+
+    t = TimetablePlanner('2026-2027', 'Fall')
 
 
     t.find_timetables(
@@ -434,7 +431,6 @@ def main():
         whitelist=[],
         blacklist=[]
     )
-
 
 if __name__ == '__main__':
     main()
