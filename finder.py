@@ -7,8 +7,60 @@ from math import prod
 from itertools import product
 from colorsys import hsv_to_rgb
 
-def course_paste(paste_into):
+# Dictionary containing file names for each associated
+# year and semester
+file_name_list = {
+    '2025-26': {
+        'FALL': '2526F.csv',
+        'SPRING': '2526S.csv',
+    },
+    '2026-27': {
+        'FALL': '2627F.csv',
+        'SPRING': '',
+    },
+    '2027-28': {
+        'FALL': '',
+        'SPRING': '',
+    },
+    '2028-29': {
+        'FALL': '',
+        'SPRING': '',
+    },
+}
+
+
+def course_paste(year, semester):
+    """
+    Retrieves the class information of a course pasted
+    into the ``course_paste.txt`` file, the formats the
+    text to be pasted into another txt file with the
+    associated year and semester.
+
+    The function can only paste one course at a time.
+
+    :param year: Academic year. Must match the name in
+    ``file_name_list.``
+    :type year: str
+
+    :param semester: Semester within academic year. Must
+    also match the name in ``file_name_list.``
+    :type semester: str
+
+    """
+
     def a_or_p(time):
+        """
+        Converts a time to 24 hour time.
+
+        :param time: A time retrieved from the
+            *course_paste.txt* file, in the format ``XX:XXAM``
+        :type time: str
+
+        :return: The same time in the format ``XX:XX`` in
+            24 hour time.
+        :rtype: str
+
+        """
         if time[5:7] == 'PM' and time[0:2] != '12':
             return f'{str(int(time[0:2]) + 12)}:{time[3:5]}'
         else:
@@ -23,7 +75,9 @@ def course_paste(paste_into):
             file_list += line
 
     try:
+        # Retrieve course code
         course = file_list[0][:9]
+        # Retrieve matching lab/tutorial requirement
         matching = None
         if file_list[1] == '[Matching between Lecture & Lab required]':
             matching = 'LLA'
@@ -38,16 +92,23 @@ def course_paste(paste_into):
             if i < 2:
                 continue  # First two lines are course title and matching requirement
 
-            if len(item) >= 9 and item[-6] == '(' and item[-1] == ')':
+            elif len(item) >= 9 and item[-6] == '(' and item[-1] == ')':
                 if durations:
                     # Add previous section
                     add_list.append([section] + durations)
 
                 # Retrieve section
                 section = item[:-7]
+
+                # Remove leading 0's from section
+                if not section[0].isdecimal() and section[1] == '0':
+                    section = section[:1] + section[2:]
+                elif not section[1].isdecimal() and section[2] == '0':
+                    section = section[:2] + section[3:]
+
                 durations = []
 
-            if ' - ' in item:
+            elif ' - ' in item:
                 if len(item) == 20:
                     # Retrieve 1 duration
                     durations.append(f'{item[0:2]} {a_or_p(item[3:10])} {a_or_p(item[13:20])}')
@@ -59,15 +120,38 @@ def course_paste(paste_into):
         # Add last section
         add_list.append([section] + durations)
 
-        with open(paste_into, 'a', newline='') as f:
+        # Validate year parameter
+        for i in range(25, 29):
+            # Most of this part is unnecessary but allows the academic year to be typed in any format
+            if str(i) in year and str(i + 1) in year:
+                year = f'{2000 + i}-{i + 1}'
+                break
+        else:
+            raise Exception('Invalid: Year not valid')
+
+        # Validate semester parameter
+        semester = semester.upper()
+        if semester == 'AUTUMN':
+            semester = 'FALL'
+        if semester in ['FALL', 'WINTER', 'SPRING', 'SUMMER']:
+            semester = semester
+        else:
+            raise Exception('Semester not valid')
+
+        # Check for matching text file
+        file_name = file_name_list[year][semester]
+        if not file_name:
+            raise Exception(f'No file found in file_name_list')
+
+        # Write to file
+        with open('semesters/'+file_name, 'a', newline='') as f:
             writer = csv.writer(f)
             writer.writerows(add_list)
 
     except Exception as e:
-        raise Exception(f'#### Unable to paste course info: {e}')
+        raise Exception(f'Unable to paste course info: {e}')
     else:
         print('Course successfully pasted')
-
 
 
 class TimetablePlanner:
@@ -91,7 +175,7 @@ class TimetablePlanner:
             if str(i) in year and str(i + 1) in year:
                 self.year = f'{2000 + i}-{i + 1}'
         if self.year is None:
-            raise Exception('#### Invalid: Year not valid')
+            raise Exception('Invalid: Year not valid')
 
         self.semester = None
         semester = semester.upper()
@@ -99,40 +183,19 @@ class TimetablePlanner:
             semester = 'FALL'
         if semester in ['FALL', 'WINTER', 'SPRING', 'SUMMER']:
             self.semester = semester
-        if self.semester is None:
-            print('#### Invalid: Semester not valid')
-            quit()
+        else:
+            raise Exception('Semester not valid')
 
-        file_name_list = {
-            '2025-26': {
-                'FALL': '2526F.csv',
-                'SPRING': '2526S.csv',
-            },
-            '2026-27': {
-                'FALL': '2627F.csv',
-                'SPRING': '',
-            },
-            '2027-28': {
-                'FALL': '',
-                'SPRING': '',
-            },
-            '2028-29': {
-                'FALL': '',
-                'SPRING': '',
-            },
-        }
-
-        # Check for matching text file
         self.file_name = file_name_list[self.year][self.semester]
         if not self.file_name:
-            raise Exception(f'#### Invalid: No file found')
+            raise Exception(f'No file found')
 
         self.courses = []
         self.course_matching = {}
         self.classes = {}
 
         # Make dictionary of classes
-        with (open(self.file_name, 'r') as f):
+        with (open('semesters/'+self.file_name, 'r') as f):
             reader = csv.reader(f)
 
             for line_no, line in enumerate(reader):
@@ -229,17 +292,24 @@ class TimetablePlanner:
                         self.classes[(course, section)] = durations_formatted
 
                 except Exception as e:
-                    print(f'#### Invalid: {e} (File {self.file_name} Line {line_no + 1})')
+                    print(f'Invalid format: {e} (File {self.file_name} Line {line_no + 1})')
 
         self.blank = np.zeros((5, len(self.valid_times)))
 
-
-    def find_timetables(self, print_valid=False, plot=False, whitelist=None, blacklist=None):
+    def find_timetables(self, print_valid=False, plot=False, grouping=[], whitelist=[], blacklist=[]):
 
         def create_timetable():
             return np.zeros((5, len(self.valid_times)))
 
         def find_section_type(section):
+            """
+            Finds the section type for a section code.
+
+            Since a section type is only either one or two
+            letters long, the statement only checks for
+            whether the second character is a number in
+            order to distinguish between the two cases.
+            """
             if section[1] in self.numbers:
                 return section[0:1]
             else:
@@ -264,60 +334,90 @@ class TimetablePlanner:
                 table[day, start:end] = 1
             return table
 
-        def all_product(whitelist, blacklist):
+        def all_product(grouping, whitelist, blacklist):
 
-            all_course_products = []
 
-            for course in self.courses:
-                current_course_products = []
+            # Format all courses to be inside a list
+            grouping = list([group] if type(group) != list else group for group in grouping)
 
-                # Find all section types in course
-                sections = [key[1] for key in self.classes if key[0] == course]
-                section_types = list(set(find_section_type(key) for key in sections))
-                section_types.sort()
+            # Validate grouping
+            in_grouping = []
+            for group in grouping:
+                for course in group:
+                    if type(course) != str:
+                        raise Exception(f'Grouping parameter: Course not in valid format')
+                    elif course not in self.courses:
+                        raise Warning(f'Grouping parameter: Course {course} not found')
+                    elif course in in_grouping:
+                        raise Exception(f'Grouping parameter: Duplicate course {course} found')
+                    else:
+                        in_grouping.append(course)
 
-                if any(wl_c == course for wl_c, _ in whitelist):
-                    sections = list(
-                        s for s in sections if not(
-                                any(
-                                    wl_c == course
-                                    and find_section_type(wl_s) == find_section_type(s)
-                                    for wl_c, wl_s in whitelist
-                                )
-                                and (course, s) not in whitelist
+            # Add courses not yet inside grouping
+            for course in set(self.courses) - set(in_grouping):
+                grouping.append([course])
+
+            all_products = []
+
+            for group in grouping:
+                group_products = []
+
+                for course in group:
+                    course_products = []
+                    # Find all section types in course
+                    sections = [key[1] for key in self.classes if key[0] == course]
+                    section_types = list(set(find_section_type(key) for key in sections))
+                    section_types.sort()
+
+                    if any(wl_c == course for wl_c, _ in whitelist):
+                        sections = list(
+                            s for s in sections if not (
+                                    any(
+                                        wl_c == course
+                                        and find_section_type(wl_s) == find_section_type(s)
+                                        for wl_c, wl_s in whitelist
+                                    )
+                                    and (course, s) not in whitelist
+                            )
                         )
-                    )
-                sections = list(s for s in sections if (course, s) not in blacklist)
+                    sections = list(s for s in sections if (course, s) not in blacklist)
 
-                # Raise error if a section type has no section (due to combination of whitelist and blacklist)
-                if missing := set(section_types) - set(find_section_type(key) for key in sections):
-                    raise Exception(f'No valid sections {missing} in {course}')
+                    # Raise error if a section type has no section (due to combination of whitelist and blacklist)
+                    if missing := set(section_types) - set(find_section_type(key) for key in sections):
+                        raise Exception(f'No valid sections {missing} in {course}')
 
-                if self.course_matching[course] == 'LLA':
-                    for l_section in list(s for s in sections if find_section_type(s) == 'L'):
-                        for la_section in list(
-                                s for s in sections if find_section_type(s) == 'LA' and l_section[1:] in s):
-                            current_course_products.append([(course, l_section), (course, la_section)])
+                    if self.course_matching[course] == 'LLA':
+                        for l_section in list(s for s in sections if find_section_type(s) == 'L'):
+                            for la_section in list(
+                                    s for s in sections if find_section_type(s) == 'LA' and l_section[1:] in s):
+                                course_products.append([(course, l_section), (course, la_section)])
 
-                    section_types.remove('L')
-                    section_types.remove('LA')
-                    all_course_products.append(current_course_products)
+                        section_types.remove('L')
+                        section_types.remove('LA')
 
-                elif self.course_matching[course] == 'LT':
-                    for l_section in list(s for s in sections if find_section_type(s) == 'L'):
-                        for t_section in list(
-                                s for s in sections if find_section_type(s) == 'T' and l_section[1:] in s):
-                            current_course_products.append([(course, l_section), (course, t_section)])
+                    elif self.course_matching[course] == 'LT':
+                        for l_section in list(s for s in sections if find_section_type(s) == 'L'):
+                            for t_section in list(
+                                    s for s in sections if find_section_type(s) == 'T' and l_section[1:] in s):
+                                course_products.append([(course, l_section), (course, t_section)])
 
-                    section_types.remove('L')
-                    section_types.remove('T')
-                    all_course_products.append(current_course_products)
+                        section_types.remove('L')
+                        section_types.remove('T')
 
-                for section_type in section_types:
-                    all_course_products.append(
-                        list([(course, s)] for s in sections if find_section_type(s) == section_type))
+                    if not course_products:
+                        course_products = [[]]
+                    # Add remaining classes
+                    for section_type in section_types:
+                        course_products = list(
+                            existing_comb + [(course, s)] for s in sections if find_section_type(s) == section_type \
+                            for existing_comb in course_products
+                        )
 
-            return all_course_products
+                    group_products  += course_products
+
+                all_products.append(group_products)
+
+            return all_products
 
         def plot_timetable(ar_no, invalid, p_courses):
 
@@ -335,18 +435,20 @@ class TimetablePlanner:
 
                 t = np.array(list(colour_formula(course) for course in t))
                 t += np.random.uniform(-0.01, 0.01, np.shape(t))
-                def tooclose(x):
-                    return abs(1 / (30 + 300 * abs(x))) * (x / abs(x))
 
-                a = np.array([t] * len(t))
-                a = a[np.where(1 - np.eye(len(t)))]
+                if len(t) > 1:
+                    def tooclose(x):
+                        return abs(1 / (30 + 300 * abs(x))) * (x / abs(x))
 
-                a = np.reshape(a, (-1, int(len(a) ** 0.5), 3))
-                a = tooclose(np.expand_dims(t, axis=1) - a)
+                    a = np.array([t] * len(t))
+                    a = a[np.where(1 - np.eye(len(t)))]
 
-                t = t + np.sum(a, axis=1)
-                t[np.where(t > 1)] = 1
-                t[np.where(t < 0)] = 0
+                    a = np.reshape(a, (-1, int(len(a) ** 0.5), 3))
+                    a = tooclose(np.expand_dims(t, axis=1) - a)
+
+                    t = t + np.sum(a, axis=1)
+                    t[np.where(t > 1)] = 1
+                    t[np.where(t < 0)] = 0
 
                 return t
 
@@ -367,7 +469,6 @@ class TimetablePlanner:
                 enumerate(unique_courses))
             plt.legend(handles=legend_values)
 
-
             title = f'Timetable {ar_no} ({'Invalid' if invalid else 'Valid'})'
             for i, (course, section) in enumerate(p_courses):
                 if i % 4 == 0:
@@ -386,7 +487,10 @@ class TimetablePlanner:
 
             plt.show()
 
-        a_p = all_product(whitelist, blacklist)
+        # FUNCTIONS WITHIN find_timetables END HERE
+
+
+        a_p = all_product(grouping, whitelist, blacklist)
 
         if not list(len(sub) for sub in a_p):
             raise Exception('No combinations created')
@@ -419,15 +523,14 @@ class TimetablePlanner:
 
 
 def main():
-
-    #course_paste('2627F.csv')
+    #course_paste('2026-27', 'FALL')
 
     t = TimetablePlanner('2026-2027', 'Fall')
-
 
     t.find_timetables(
         print_valid=True,
         plot=True,
+        grouping=[],
         whitelist=[],
         blacklist=[]
     )
