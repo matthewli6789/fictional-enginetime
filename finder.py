@@ -7,44 +7,17 @@ from math import prod
 from itertools import product
 from colorsys import hsv_to_rgb
 
-# Dictionary containing file names for each associated
-# year and semester
-file_name_list = {
-    '2025-26': {
-        'FALL': '2526F.csv',
-        'SPRING': '2526S.csv',
-    },
-    '2026-27': {
-        'FALL': '2627F.csv',
-        'SPRING': '',
-    },
-    '2027-28': {
-        'FALL': '',
-        'SPRING': '',
-    },
-    '2028-29': {
-        'FALL': '',
-        'SPRING': '',
-    },
-}
-
-
-def course_paste(year, semester):
+def course_paste(file_name):
     """
     Retrieves the class information of a course pasted
     into the ``course_paste.txt`` file, the formats the
-    text to be pasted into another txt file with the
-    associated year and semester.
+    text to be pasted into a csv file to store information
+    about selected courses.
 
     The function can only paste one course at a time.
 
-    :param year: Academic year. Must match the name in
-    ``file_name_list.``
-    :type year: str
-
-    :param semester: Semester within academic year. Must
-    also match the name in ``file_name_list.``
-    :type semester: str
+    :param file_name: The file name of the csv file to be pasted into.
+    :type file_name: str
 
     """
 
@@ -120,31 +93,12 @@ def course_paste(year, semester):
         # Add last section
         add_list.append([section] + durations)
 
-        # Validate year parameter
-        for i in range(25, 29):
-            # Most of this part is unnecessary but allows the academic year to be typed in any format
-            if str(i) in year and str(i + 1) in year:
-                year = f'{2000 + i}-{i + 1}'
-                break
-        else:
-            raise Exception('Invalid: Year not valid')
-
-        # Validate semester parameter
-        semester = semester.upper()
-        if semester == 'AUTUMN':
-            semester = 'FALL'
-        if semester in ['FALL', 'WINTER', 'SPRING', 'SUMMER']:
-            semester = semester
-        else:
-            raise Exception('Semester not valid')
-
-        # Check for matching text file
-        file_name = file_name_list[year][semester]
+        # Check for matching file
         if not file_name:
-            raise Exception(f'No file found in file_name_list')
+            raise Exception(f'No file {file_name} found')
 
         # Write to file
-        with open('semesters/'+file_name, 'a', newline='') as f:
+        with open(file_name, 'a', newline='') as f:
             writer = csv.writer(f)
             writer.writerows(add_list)
 
@@ -156,7 +110,7 @@ def course_paste(year, semester):
 
 class TimetablePlanner:
 
-    def __init__(self, year, semester):
+    def __init__(self, file_name):
 
         self.letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
         self.numbers = '0123456789'
@@ -169,33 +123,14 @@ class TimetablePlanner:
             for minute in range(00, 60, 10):
                 self.valid_times.append(f'{str(hour).zfill(2)}:{str(minute).zfill(2)}')
 
-        self.year = None
-        for i in range(25, 29):
-            # Most of this part is unnecessary but allows the academic year to be typed in any format
-            if str(i) in year and str(i + 1) in year:
-                self.year = f'{2000 + i}-{i + 1}'
-        if self.year is None:
-            raise Exception('Invalid: Year not valid')
-
-        self.semester = None
-        semester = semester.upper()
-        if semester == 'AUTUMN':
-            semester = 'FALL'
-        if semester in ['FALL', 'WINTER', 'SPRING', 'SUMMER']:
-            self.semester = semester
-        else:
-            raise Exception('Semester not valid')
-
-        self.file_name = file_name_list[self.year][self.semester]
-        if not self.file_name:
-            raise Exception(f'No file found')
+        self.file_name = file_name
 
         self.courses = []
         self.course_matching = {}
         self.classes = {}
 
         # Make dictionary of classes
-        with (open('semesters/'+self.file_name, 'r') as f):
+        with (open(self.file_name, 'r') as f):
             reader = csv.reader(f)
 
             for line_no, line in enumerate(reader):
@@ -523,9 +458,9 @@ class TimetablePlanner:
 
 
 def main():
-    #course_paste('2026-27', 'FALL')
+    #course_paste('test.csv')
 
-    t = TimetablePlanner('2026-2027', 'Fall')
+    t = TimetablePlanner('test.csv')
 
     t.find_timetables(
         print_valid=True,
